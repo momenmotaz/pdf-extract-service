@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from api.routers import router
 from core.config import settings
 import logging
@@ -11,6 +12,15 @@ app = FastAPI(
     title=settings.PROJECT_NAME, 
     version=settings.VERSION, 
     description="High-performance, low-memory PDF Extraction Microservice"
+)
+
+# Add CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this in production to specific domains if needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Connect the routers
