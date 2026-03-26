@@ -13,5 +13,7 @@ app.include_router(router)
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+    port = int(os.environ.get("PORT", 8000))
     # Optimized serving without extra features keeping RAM low
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=settings.DEBUG, workers=1)
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=settings.DEBUG, workers=1)
