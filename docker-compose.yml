@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  pdf-extractor:
+    build: .
+    container_name: pdf_extractor_service
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      - DEBUG=False
