@@ -34,6 +34,14 @@ def validate_text(text: str) -> dict:
 
 
 def clean_text(text: str) -> str:
+    """
+    Thoroughly clean extracted PDF text:
+    - Normalize line endings and whitespace
+    - Remove control characters
+    - Remove standalone page numbers
+    - Remove consecutive duplicate lines (common in Arabic/RTL PDF extraction)
+    - Collapse excessive blank lines
+    """
     # Normalize line endings
     text = text.replace('\r\n', '\n').replace('\r', '\n')
 
@@ -47,15 +55,17 @@ def clean_text(text: str) -> str:
     lines = [line.strip() for line in text.split('\n')]
 
     # Remove standalone page-number lines (lone integers, e.g. "7", "12", "63")
-    lines = [line for line in lines if not re.fullmatch(r'\d{1,3}', line)]
+    lines = [line for line in lines if not re.fullmatch(r'\d{1,4}', line)]
 
-    # Remove consecutive duplicate lines (common artifact in RTL/bidi PDFs extracted by PyMuPDF)
+    # Remove consecutive duplicate lines (normalize for comparison)
     deduped = []
-    prev = None
+    prev_normalized = None
     for line in lines:
-        if line != prev:
+        # Normalize: lowercase, collapse whitespace, strip for comparison
+        normalized = re.sub(r'\s+', '', line).lower()
+        if normalized == '' or normalized != prev_normalized:
             deduped.append(line)
-        prev = line
+        prev_normalized = normalized
 
     # Collapse more than 1 consecutive blank line into a single blank line
     cleaned = []
@@ -69,4 +79,31 @@ def clean_text(text: str) -> str:
             blank_count = 0
             cleaned.append(line)
 
-    return '\n'.join(cleaned).strip()
+    # Merge consecutive non-empty lines into paragraphs
+    # A blank line separates paragraphs
+    paragraphs = []
+    current_para = []
+    for line in cleaned:
+        if line == '':
+            if current_para:
+                paragraphs.append(' '.join(current_para))
+                current_para = []
+            paragraphs.append('')  # keep blank line as paragraph separator
+        else:
+            current_para.append(line)
+    if current_para:
+        paragraphs.append(' '.join(current_para))
+
+    # Final collapse: remove consecutive blank lines again after merge
+    final = []
+    prev_blank = False
+    for p in paragraphs:
+        if p == '':
+            if not prev_blank:
+                final.append(p)
+            prev_blank = True
+        else:
+            prev_blank = False
+            final.append(p)
+
+    return '\n'.join(final).strip()

@@ -1,55 +1,32 @@
 import fitz  # PyMuPDF
 import pdfplumber
 import io
+import re
 import unicodedata
-
-try:
-    import arabic_reshaper
-    from bidi.algorithm import get_display
-    ARABIC_SUPPORT = True
-except ImportError:
-    ARABIC_SUPPORT = False
 
 
 def normalize_arabic(text: str) -> str:
     """
-    Normalize Arabic text extracted from PDFs.
+    Normalize Arabic text extracted from PDFs for clean storage and RAG search.
     
-    PDFs often store Arabic in 'Presentation Forms' (legacy Unicode block U+FE70–U+FEFF)
-    which renders incorrectly in browsers. This converts them to proper Arabic Unicode
-    (U+0600–U+06FF) using arabic_reshaper, then fixes RTL ordering with python-bidi.
+    - NFKC normalization converts Arabic Presentation Forms (U+FB50-FDFF, U+FE70-FEFF)
+      back to standard Arabic characters (U+0600-U+06FF)
+    - Removes tatweel (kashida) elongation characters
+    - Strips diacritics (tashkeel) which add noise for search/RAG
     """
-    if not ARABIC_SUPPORT:
-        return text
-    
-    # Check if text contains Arabic Presentation Forms or Arabic characters
     has_arabic = any(
-        '\u0600' <= ch <= '\u06FF' or '\uFE70' <= ch <= '\uFEFF'
+        '\u0600' <= ch <= '\u06FF' or '\uFB50' <= ch <= '\uFDFF' or '\uFE70' <= ch <= '\uFEFF'
         for ch in text
     )
-    
     if not has_arabic:
         return text
-    
-    # Normalize unicode (NFC) to convert Presentation Forms to base forms
-    text = unicodedata.normalize('NFC', text)
-    
-    lines = text.split('\n')
-    normalized_lines = []
-    
-    for line in lines:
-        line_has_arabic = any(
-            '\u0600' <= ch <= '\u06FF' or '\uFE70' <= ch <= '\uFEFF'
-            for ch in line
-        )
-        if line_has_arabic and line.strip():
-            reshaped = arabic_reshaper.reshape(line)
-            bidi_text = get_display(reshaped)
-            normalized_lines.append(bidi_text)
-        else:
-            normalized_lines.append(line)
-    
-    return '\n'.join(normalized_lines)
+    # NFKC decomposes Arabic Presentation Forms → standard Arabic
+    text = unicodedata.normalize('NFKC', text)
+    # Remove tatweel (kashida) elongation character
+    text = text.replace('\u0640', '')
+    # Remove Arabic diacritics (tashkeel) — noisy for RAG
+    text = re.sub(r'[\u064B-\u065F\u0670]', '', text)
+    return text
 
 
 def extract_with_pymupdf(content: bytes) -> dict:
@@ -96,4 +73,3 @@ def extract_with_pdfplumber(content: bytes) -> dict:
             })
 
     return {"text": full_text, "pages": pages_data, "page_count": page_count}
-

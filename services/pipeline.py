@@ -50,11 +50,17 @@ def process_document(content: bytes, filename: str) -> dict:
                 warning = validation["reason"]
                 
     # 3. Clean all texts strictly
-    clean_full_text = clean_text(res["text"])
     for p in res["pages"]:
         p["text"] = clean_text(p["text"])
+    
+    # 4. Build full text with page number markers
+    page_texts = []
+    for p in res["pages"]:
+        if p["text"].strip():
+            page_texts.append(p["text"] + f"\n\n--- Page {p['page_number']} ---")
+    clean_full_text = "\n\n".join(page_texts)
         
-    # 4. Attempt table extraction overhead isolated
+    # 5. Attempt table extraction overhead isolated
     tables = extract_tables(content)
     
     # Attach matched tables locally to logical pages

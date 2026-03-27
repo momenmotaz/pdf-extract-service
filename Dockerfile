@@ -21,7 +21,10 @@ WORKDIR /app
 # Copy the requirements file into the container
 COPY requirements.txt .
 
-# Install any needed packages specified in requirements.txt
+# Install opencv separately first (prone to CRC errors on rolling releases)
+RUN pip install --no-cache-dir --retries 5 opencv-python-headless==4.10.0.84
+
+# Install remaining packages
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the current directory contents into the container at /app
